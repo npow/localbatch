@@ -1,0 +1,15 @@
+services:
+  corral:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the Docker socket so corral can spawn sibling containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # When corral itself runs in Docker, containers it spawns need to reach
+      # it via the Docker bridge gateway rather than host.docker.internal.
+      # Find yours with: docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
+      CORRAL_DOCKER_HOST: "172.17.0.1"
+      CORRAL_QUEUE: "corral-default"
+    restart: unless-stopped
