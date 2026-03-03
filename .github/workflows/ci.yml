@@ -21,6 +21,6 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e . pytest
+          pip install -e ".[dev]"
       - name: Smoke test import
         run: python -c "from corral.server import create_app; from corral.store import Store; from corral.runner import DockerRunner"
