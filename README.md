@@ -5,11 +5,11 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-Test your AWS Batch workloads locally without an AWS account.
+The free AWS Batch emulator that actually runs your containers.
 
 ## The problem
 
-You write a step that runs on `@batch`. Testing it means pushing code, waiting for ECR, paying for EC2, and debugging through CloudWatch — a cycle that takes minutes per iteration. LocalStack supports Batch only in its paid Pro tier. Moto mocks the API but never runs your container. There is no free, real AWS Batch emulator.
+Testing AWS Batch jobs means pushing code, waiting on queues, and paying for EC2 — just to find out your container crashes on startup. LocalStack's Batch support is paid. Moto validates API calls but never executes your container. There is no free emulator that runs real workloads.
 
 ## Quick start
 
@@ -18,7 +18,7 @@ pip install corral
 corral --port 8000
 ```
 
-Point any AWS Batch client at it:
+Point any Batch client at it — no AWS account, no credentials:
 
 ```bash
 export AWS_ENDPOINT_URL_BATCH=http://localhost:8000
@@ -26,22 +26,23 @@ export AWS_DEFAULT_REGION=us-east-1
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 
-aws batch describe-job-queues   # → corral-default queue
+aws batch describe-job-queues
+aws batch register-job-definition --job-definition-name hello \
+    --type container \
+    --container-properties '{"image":"alpine","command":["echo","hello"],"resourceRequirements":[{"type":"VCPU","value":"1"},{"type":"MEMORY","value":"256"}]}'
+aws batch submit-job --job-name test --job-queue corral-default --job-definition hello
 ```
 
 ## Install
 
 ```bash
-# From PyPI
-pip install corral
-
-# From source
-pip install -e ~/code/corral
+pip install corral          # from PyPI
+pip install -e ~/code/corral  # from source
 ```
 
 ## Usage
 
-### Run a job via boto3
+### boto3
 
 ```python
 import boto3
@@ -59,7 +60,7 @@ batch.register_job_definition(
     type="container",
     containerProperties={
         "image": "alpine:latest",
-        "command": ["echo", "hello from corral"],
+        "command": ["echo", "hello"],
         "resourceRequirements": [
             {"type": "VCPU", "value": "1"},
             {"type": "MEMORY", "value": "256"},
@@ -75,18 +76,9 @@ resp = batch.submit_job(
 print(resp["jobId"])
 ```
 
-### Run a Metaflow @batch step locally
-
-```bash
-export METAFLOW_BATCH_JOB_QUEUE=corral-default
-export METAFLOW_BATCH_CLIENT_PARAMS='{"endpoint_url":"http://localhost:8000"}'
-
-python my_flow.py run
-```
-
 ### Inject environment variables into every container
 
-Useful for forwarding MinIO credentials or a local metadata service URL:
+Forward credentials or service URLs into all containers without baking them into your job definition:
 
 ```bash
 corral \
@@ -95,11 +87,20 @@ corral \
   --inject-env AWS_ENDPOINT_URL_S3=http://host.docker.internal:9000
 ```
 
+### Metaflow
+
+```bash
+export METAFLOW_BATCH_JOB_QUEUE=corral-default
+export METAFLOW_BATCH_CLIENT_PARAMS='{"endpoint_url":"http://localhost:8000"}'
+
+python my_flow.py run
+```
+
 ## How it works
 
-corral runs a FastAPI server that implements the AWS Batch REST API surface used by boto3 and the AWS CLI. When a job is submitted, corral pulls the container image and runs it with `docker run`. Job status transitions (`SUBMITTED → PENDING → RUNNABLE → STARTING → RUNNING → SUCCEEDED/FAILED`) are driven by the real container exit code.
+corral starts a FastAPI server that implements the complete [AWS Batch REST API](https://docs.aws.amazon.com/batch/latest/APIReference/API_Operations.html) (all 25 operations). When a job is submitted, corral runs the container with the Docker SDK. Job status transitions (`SUBMITTED → PENDING → RUNNABLE → STARTING → RUNNING → SUCCEEDED/FAILED`) reflect the real container exit code.
 
-A fake ECS Container Metadata endpoint (`/metadata/{job_id}/task`) is injected into every container via `ECS_CONTAINER_METADATA_URI_V4` so that frameworks like Metaflow can read a synthetic CloudWatch log stream name without hitting real AWS.
+A fake ECS Container Metadata endpoint is injected via `ECS_CONTAINER_METADATA_URI_V4` so that tooling that reads CloudWatch log stream names works without changes.
 
 ## Configuration
 
@@ -116,12 +117,9 @@ A fake ECS Container Metadata endpoint (`/metadata/{job_id}/task`) is injected i
 
 ```bash
 git clone https://github.com/npow/corral
-pip install -e corral
-pytest test/unit/corral/ -m "not docker"   # API tests, no Docker required
-pytest test/unit/corral/                   # all tests (requires Docker)
+pip install -e corral pytest
+pytest  # import smoke tests
 ```
-
-Note: the integration tests live in the [Metaflow](https://github.com/Netflix/metaflow) repository under `test/unit/corral/`.
 
 ## License
 
