@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "corral"
-version = "0.1.0"
+name = "localbatch"
+version = "0.2.0"
 description = "Local AWS Batch emulator for integration testing"
 requires-python = ">=3.8"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-corral = "corral.__main__:main"
+localbatch = "localbatch.__main__:main"
 
 [project.optional-dependencies]
 dev = [
@@ -25,4 +25,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/corral"]
+packages = ["src/localbatch"]

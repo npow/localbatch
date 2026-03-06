@@ -12,7 +12,7 @@ REGION = "us-east-1"
 
 
 def create_app(store, runner) -> FastAPI:
-    app = FastAPI(title="corral", description="Local AWS Batch emulator")
+    app = FastAPI(title="localbatch", description="Local AWS Batch emulator")
 
     # ------------------------------------------------------------------
     # Job Definitions
@@ -315,14 +315,14 @@ def create_app(store, runner) -> FastAPI:
     def _container_metadata(job_id: str) -> dict:
         return {
             "DockerId": job_id,
-            "Name": "corral-container",
-            "DockerName": f"corral-{job_id[:12]}",
-            "Image": "corral",
+            "Name": "localbatch-container",
+            "DockerName": f"localbatch-{job_id[:12]}",
+            "Image": "localbatch",
             "LogDriver": "awslogs",
             "LogOptions": {
-                "awslogs-group": "/corral/batch/job",
+                "awslogs-group": "/localbatch/batch/job",
                 "awslogs-region": REGION,
-                "awslogs-stream": f"corral/default/{job_id}",
+                "awslogs-stream": f"localbatch/default/{job_id}",
             },
         }
 
@@ -335,8 +335,8 @@ def create_app(store, runner) -> FastAPI:
     async def ecs_metadata_task(job_id: str):
         """Task-level metadata."""
         return {
-            "TaskARN": f"arn:aws:ecs:{REGION}:{ACCOUNT_ID}:task/corral/{job_id}",
-            "Family": "corral-task",
+            "TaskARN": f"arn:aws:ecs:{REGION}:{ACCOUNT_ID}:task/localbatch/{job_id}",
+            "Family": "localbatch-task",
             "Revision": "1",
             "Containers": [_container_metadata(job_id)],
         }
@@ -394,7 +394,7 @@ def _format_job(job: dict) -> dict:
         "platformCapabilities": [],
         "container": {
             "exitCode": job.get("exitCode"),
-            "logStreamName": f"corral/default/{job['jobId']}",
+            "logStreamName": f"localbatch/default/{job['jobId']}",
         },
     }
 

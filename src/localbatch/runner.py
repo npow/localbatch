@@ -118,8 +118,8 @@ class DockerRunner:
         # batch_decorator.task_pre_step to populate run metadata.
         env.setdefault("AWS_BATCH_JOB_ID", job_id)
         env.setdefault("AWS_BATCH_JOB_ATTEMPT", "1")
-        env.setdefault("AWS_BATCH_CE_NAME", "corral-local")
-        env.setdefault("AWS_BATCH_JQ_NAME", job.get("jobQueue", "corral-default"))
+        env.setdefault("AWS_BATCH_CE_NAME", "localbatch-local")
+        env.setdefault("AWS_BATCH_JQ_NAME", job.get("jobQueue", "localbatch-default"))
         env.setdefault("AWS_EXECUTION_ENV", "AWS_ECS_EC2")
 
         # Inject the fake ECS container metadata endpoint so Metaflow can

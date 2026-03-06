@@ -1,7 +1,7 @@
-# corral
+# localbatch
 
-[![CI](https://github.com/npow/corral/actions/workflows/ci.yml/badge.svg)](https://github.com/npow/corral/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/corral)](https://pypi.org/project/corral/)
+[![CI](https://github.com/npow/localbatch/actions/workflows/ci.yml/badge.svg)](https://github.com/npow/localbatch/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/localbatch)](https://pypi.org/project/localbatch/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
@@ -14,8 +14,8 @@ Testing AWS Batch jobs means pushing code, waiting on queues, and paying for EC2
 ## Quick start
 
 ```bash
-pip install corral
-corral --port 8000
+pip install localbatch
+localbatch --port 8000
 ```
 
 Point any Batch client at it — no AWS account, no credentials:
@@ -30,14 +30,14 @@ aws batch describe-job-queues
 aws batch register-job-definition --job-definition-name hello \
     --type container \
     --container-properties '{"image":"alpine","command":["echo","hello"],"resourceRequirements":[{"type":"VCPU","value":"1"},{"type":"MEMORY","value":"256"}]}'
-aws batch submit-job --job-name test --job-queue corral-default --job-definition hello
+aws batch submit-job --job-name test --job-queue localbatch-default --job-definition hello
 ```
 
 ## Install
 
 ```bash
-pip install corral          # from PyPI
-pip install -e ~/code/corral  # from source
+pip install localbatch          # from PyPI
+pip install -e ~/code/localbatch  # from source
 ```
 
 ## Usage
@@ -70,7 +70,7 @@ batch.register_job_definition(
 
 resp = batch.submit_job(
     jobName="my-run",
-    jobQueue="corral-default",
+    jobQueue="localbatch-default",
     jobDefinition="my-job",
 )
 print(resp["jobId"])
@@ -81,7 +81,7 @@ print(resp["jobId"])
 Forward credentials or service URLs into all containers without baking them into your job definition:
 
 ```bash
-corral \
+localbatch \
   --inject-env AWS_ACCESS_KEY_ID=minioadmin \
   --inject-env AWS_SECRET_ACCESS_KEY=minioadmin \
   --inject-env AWS_ENDPOINT_URL_S3=http://host.docker.internal:9000
@@ -90,7 +90,7 @@ corral \
 ### Metaflow
 
 ```bash
-export METAFLOW_BATCH_JOB_QUEUE=corral-default
+export METAFLOW_BATCH_JOB_QUEUE=localbatch-default
 export METAFLOW_BATCH_CLIENT_PARAMS='{"endpoint_url":"http://localhost:8000"}'
 
 python my_flow.py run
@@ -98,7 +98,7 @@ python my_flow.py run
 
 ## How it works
 
-corral starts a FastAPI server that implements the complete [AWS Batch REST API](https://docs.aws.amazon.com/batch/latest/APIReference/API_Operations.html) (all 25 operations). When a job is submitted, corral runs the container with the Docker SDK. Job status transitions (`SUBMITTED → PENDING → RUNNABLE → STARTING → RUNNING → SUCCEEDED/FAILED`) reflect the real container exit code.
+localbatch starts a FastAPI server that implements the complete [AWS Batch REST API](https://docs.aws.amazon.com/batch/latest/APIReference/API_Operations.html) (all 25 operations). When a job is submitted, localbatch runs the container with the Docker SDK. Job status transitions (`SUBMITTED → PENDING → RUNNABLE → STARTING → RUNNING → SUCCEEDED/FAILED`) reflect the real container exit code.
 
 A fake ECS Container Metadata endpoint is injected via `ECS_CONTAINER_METADATA_URI_V4` so that tooling that reads CloudWatch log stream names works without changes.
 
@@ -108,16 +108,16 @@ A fake ECS Container Metadata endpoint is injected via `ECS_CONTAINER_METADATA_U
 |------|---------|---------|-------------|
 | `--host` | — | `127.0.0.1` | Bind address |
 | `--port` | — | `8000` | Listen port |
-| `--queue` | `CORRAL_QUEUE` | `corral-default` | Default job queue name |
-| `--docker-host` | `CORRAL_DOCKER_HOST` | `host.docker.internal` | Hostname containers use to reach the host |
+| `--queue` | `LOCALBATCH_QUEUE` | `localbatch-default` | Default job queue name |
+| `--docker-host` | `LOCALBATCH_DOCKER_HOST` | `host.docker.internal` | Hostname containers use to reach the host |
 | `--inject-env KEY=VAL` | — | — | Env var forwarded into every container (repeatable) |
 | `--log-level` | — | `info` | uvicorn log level |
 
 ## Development
 
 ```bash
-git clone https://github.com/npow/corral
-pip install -e corral pytest
+git clone https://github.com/npow/localbatch
+pip install -e localbatch pytest
 pytest  # import smoke tests
 ```
 

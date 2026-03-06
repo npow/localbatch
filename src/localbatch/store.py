@@ -7,8 +7,8 @@ ACCOUNT_ID = "123456789012"
 REGION = "us-east-1"
 ARN_PREFIX = f"arn:aws:batch:{REGION}:{ACCOUNT_ID}"
 
-DEFAULT_QUEUE = "corral-default"
-DEFAULT_COMPUTE_ENV = "corral-default"
+DEFAULT_QUEUE = "localbatch-default"
+DEFAULT_COMPUTE_ENV = "localbatch-default"
 
 
 def _ce_arn(name: str) -> str:
