@@ -307,26 +307,38 @@ def create_app(store, runner) -> FastAPI:
     # Injected into containers as ECS_CONTAINER_METADATA_URI_V4 so
     # Metaflow's batch_decorator can read a synthetic CloudWatch log stream
     # name without hitting real AWS.
+    #
+    # Metaflow calls GET {ECS_CONTAINER_METADATA_URI_V4} (container-level)
+    # and expects LogDriver/LogOptions at the top level of the response.
     # ------------------------------------------------------------------
+
+    def _container_metadata(job_id: str) -> dict:
+        return {
+            "DockerId": job_id,
+            "Name": "corral-container",
+            "DockerName": f"corral-{job_id[:12]}",
+            "Image": "corral",
+            "LogDriver": "awslogs",
+            "LogOptions": {
+                "awslogs-group": "/corral/batch/job",
+                "awslogs-region": REGION,
+                "awslogs-stream": f"corral/default/{job_id}",
+            },
+        }
+
+    @app.get("/metadata/{job_id}")
+    async def ecs_metadata_container(job_id: str):
+        """Container-level metadata — ECS_CONTAINER_METADATA_URI_V4 points here."""
+        return _container_metadata(job_id)
 
     @app.get("/metadata/{job_id}/task")
     async def ecs_metadata_task(job_id: str):
+        """Task-level metadata."""
         return {
             "TaskARN": f"arn:aws:ecs:{REGION}:{ACCOUNT_ID}:task/corral/{job_id}",
             "Family": "corral-task",
             "Revision": "1",
-            "Containers": [
-                {
-                    "DockerId": job_id,
-                    "Name": "corral-container",
-                    "LogDriver": "awslogs",
-                    "LogOptions": {
-                        "awslogs-group": "/corral/batch/job",
-                        "awslogs-region": REGION,
-                        "awslogs-stream": f"corral/default/{job_id}",
-                    },
-                }
-            ],
+            "Containers": [_container_metadata(job_id)],
         }
 
     @app.get("/health")

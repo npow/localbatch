@@ -102,10 +102,25 @@ class DockerRunner:
         )
 
         # Caller-supplied env vars (e.g. MinIO credentials, metadata service
-        # URL) that every container should inherit.  Job-specific values win.
-        merged = dict(self.inject_env)
-        merged.update(env)
+        # URL) that every container should inherit.  inject_env wins over
+        # job-specific values so that infrastructure URLs (host.docker.internal)
+        # always take precedence over whatever the submitter passes (e.g.
+        # localhost:9000 on the host vs host.docker.internal:9000 in container).
+        merged = dict(env)
+        merged.update(self.inject_env)
         env = merged
+
+        # Inject standard AWS Batch environment variables that real Batch
+        # injects automatically.  Metaflow uses AWS_BATCH_JOB_ATTEMPT to
+        # compute --retry-count (as $((AWS_BATCH_JOB_ATTEMPT-1))), so it
+        # must be ≥ 1 or the arithmetic produces -1 which click rejects.
+        # AWS_BATCH_CE_NAME and AWS_BATCH_JQ_NAME are read by Metaflow's
+        # batch_decorator.task_pre_step to populate run metadata.
+        env.setdefault("AWS_BATCH_JOB_ID", job_id)
+        env.setdefault("AWS_BATCH_JOB_ATTEMPT", "1")
+        env.setdefault("AWS_BATCH_CE_NAME", "corral-local")
+        env.setdefault("AWS_BATCH_JQ_NAME", job.get("jobQueue", "corral-default"))
+        env.setdefault("AWS_EXECUTION_ENV", "AWS_ECS_EC2")
 
         # Inject the fake ECS container metadata endpoint so Metaflow can
         # discover the (synthetic) CloudWatch log stream name.
@@ -130,6 +145,20 @@ class DockerRunner:
 
             result = container.wait(timeout=7200)
             exit_code = result.get("StatusCode", -1)
+
+            # Capture container logs for debugging
+            try:
+                logs = container.logs(stdout=True, stderr=True, tail=200)
+                log_text = logs.decode("utf-8", errors="replace").strip()
+                if exit_code != 0:
+                    logger.error(
+                        "Job %s failed (exit %d). Container logs:\n%s",
+                        job_id, exit_code, log_text,
+                    )
+                else:
+                    logger.debug("Job %s logs:\n%s", job_id, log_text)
+            except Exception as log_exc:
+                logger.warning("Could not capture logs for %s: %s", job_id, log_exc)
 
             if exit_code == 0:
                 self.store.update_job(
